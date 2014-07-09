@@ -1,6 +1,11 @@
 #!/usr/bin/env execlineb -P
 
-pipeline { foreground { echo foo } }
+pipeline {
+  foreground { s6-sleep -m 100 }
+  foreground { echo foo }
+  foreground { s6-sleep 1 }
+  foreground { echo foo2 }
+}
 pipeline { foreground { s6-tai64n } }
 fdmove 3 0
 

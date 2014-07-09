@@ -1,2 +1,4 @@
+CFLAGS = -O2 -std=c99
+#CFLAGS = -g -std=c99
 merge: merge.c
-	cc -g -std=c99 $< -o $@
+	$(CC) $(CFLAGS) $< -o $@
