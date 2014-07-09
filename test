@@ -1,18 +1,20 @@
 #!/usr/bin/env execlineb -P
 
-pipeline {
-  foreground { echo foo }
-}
+pipeline { foreground { echo foo } }
+pipeline { foreground { s6-tai64n } }
 fdmove 3 0
 
 pipeline {
   foreground { echo bar }
+  foreground { s6-sleep 1 }
+  foreground { echo bar2 }
 }
+pipeline { foreground { s6-tai64n } }
 fdmove 4 0
 
-pipeline {
-  foreground { echo baz }
-}
+pipeline { foreground { echo baz } }
+pipeline { foreground { s6-tai64n } }
 fdmove 5 0
 
+#foreground { s6-sleep 2 }
 ./merge 3 4 5

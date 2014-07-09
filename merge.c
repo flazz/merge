@@ -16,19 +16,23 @@
  * http://stackoverflow.com/questions/12340695/how-to-check-if-a-given-file-descriptor-stored-in-a-variable-is-still-valid
  */
 
-#define DEBUG(format, ...) \
-  fprintf(stderr, "DEBUG %s,%d: ", __FILE__, __LINE__); \
+#define DEBUG 0
+#define trace(format, ...) \
+  do { if (DEBUG) { \
+  fprintf(stderr, "trace %s,%d: ", __FILE__, __LINE__); \
   fprintf(stderr, format, ##__VA_ARGS__); \
   fprintf(stderr, "\n"); \
+  } } while (0);
 
 #define MAX_INPUTS 0xf
 #define MAX_RECORD_WITDH 0xff
 
 typedef unsigned long BITSET;
+#define BS_BIT(n) (1 << n)
 #define BS_CLEAR(set) set = 0;
-#define BS_SET(set, n) set |= (1 << n)
-#define BS_UNSET(set, n) set &= (0 << n)
-#define BS_TEST(set, n) set & (1 << n)
+#define BS_SET(set, n) set |= BS_BIT(n)
+#define BS_UNSET(set, n) set &= ~BS_BIT(n)
+#define BS_TEST(set, n) set & BS_BIT(n)
 
 /* machine state */
 BITSET enabled_input_fds;
@@ -77,11 +81,11 @@ read_data()
         case 0:
           BS_UNSET(enabled_input_fds, fd);
           close(fd);
-          DEBUG("fd %d: EOF", fd);
+          trace("fd %d: EOF", fd);
           break;
 
         default:
-          DEBUG("fd %d: %d - %s", fd, in_buffer_size[fd], in_buffer[fd]);
+          trace("fd %d: %d - %s", fd, in_buffer_size[fd], in_buffer[fd]);
           break;
       }
 
@@ -117,6 +121,7 @@ write_data()
   for(int i=0; i < out_buffer_count; i++) {
     write(1, out_buffer[i], out_buffer_size[i]);
   }
+  out_buffer_count = 0;
 }
 
 void
@@ -125,32 +130,32 @@ show_select_error()
 
   switch (errno) {
     case EAGAIN:
-      DEBUG(
+      trace(
           "The kernel was (perhaps temporarily) unable to allocate the requested"
           "number of file descriptors."
           );
       break;
 
     case EBADF:
-      DEBUG(
+      trace(
           "One of the descriptor sets specified an invalid descriptor."
           );
       break;
 
     case EINTR:
-      DEBUG(
+      trace(
           "A signal was delivered before the time limit expired and before any of"
           "the selected events occurred."
           );
       break;
 
     case EINVAL:
-      DEBUG(
+      trace(
           "The specified time limit is invalid.  One of its components is negative"
           "or too large."
           );
 
-      DEBUG(
+      trace(
           "ndfs is greater than FD_SETSIZE and _DARWIN_UNLIMITED_SELECT is not"
           "defined."
           "nfds: %d", fdns
@@ -158,7 +163,7 @@ show_select_error()
       break;
 
     default:
-      DEBUG("crap out");
+      trace("crap out");
       break;
   }
 }
@@ -173,7 +178,7 @@ main(int argc, char* argv[])
 
     if (fd > 2) {
       BS_SET(enabled_input_fds, fd);
-      DEBUG("listen: %d", fd);
+      trace("listen: %d", fd);
     }
 
   }
@@ -184,9 +189,9 @@ main(int argc, char* argv[])
 
     if (rs < 0) {
       show_select_error();
-      exit(1);
+      exit(errno);
     } else if (rs == 0) {
-      DEBUG("should never happen");
+      trace("should never happen");
       exit(2);
     } else {
       read_data();
