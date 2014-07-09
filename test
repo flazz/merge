@@ -1,0 +1,9 @@
+#!/usr/bin/env execlineb -P
+
+pipeline {
+  foreground { echo foo }
+}
+
+fdmove 3 0
+
+./merge 3
