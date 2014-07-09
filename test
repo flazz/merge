@@ -3,7 +3,11 @@
 pipeline {
   foreground { echo foo }
 }
-
 fdmove 3 0
 
-./merge 3
+pipeline {
+  foreground { echo bar }
+}
+fdmove 4 0
+
+./merge 3 4
