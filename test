@@ -10,4 +10,9 @@ pipeline {
 }
 fdmove 4 0
 
-./merge 3 4
+pipeline {
+  foreground { echo baz }
+}
+fdmove 5 0
+
+./merge 3 4 5
