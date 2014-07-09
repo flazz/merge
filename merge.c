@@ -6,68 +6,33 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include "debug.h"
+#include "bitset.h"
+
 /*
  * take all file descriptors given on cmdline
  * ignores fd 0 1 2
  * consume a line from each
  * write to stdout consumed lines sorted
  *
- * try them all via fcntl(fd, F_GETFD)?
- * http://stackoverflow.com/questions/12340695/how-to-check-if-a-given-file-descriptor-stored-in-a-variable-is-still-valid
  */
-
-#define DEBUG 0
-#define trace(format, ...) \
-  do { if (DEBUG) { \
-  fprintf(stderr, "trace %s,%d: ", __FILE__, __LINE__); \
-  fprintf(stderr, format, ##__VA_ARGS__); \
-  fprintf(stderr, "\n"); \
-  } } while (0);
 
 #define MAX_INPUTS 0xf
 #define MAX_RECORD_WITDH 0xff
 
-typedef unsigned long BITSET;
-#define BS_BIT(n) (1 << n)
-#define BS_CLEAR(set) set = 0;
-#define BS_SET(set, n) set |= BS_BIT(n)
-#define BS_UNSET(set, n) set &= ~BS_BIT(n)
-#define BS_TEST(set, n) set & BS_BIT(n)
+/* select context */
+int fdns;
+fd_set inputs;
 
-/* machine state */
+/* input buffers */
 BITSET enabled_input_fds;
 char in_buffer[MAX_INPUTS][MAX_RECORD_WITDH];
 int in_buffer_size[MAX_INPUTS];
 
+/* output buffers */
 int out_buffer_count = 0;
 char out_buffer[MAX_INPUTS][MAX_RECORD_WITDH];
 int out_buffer_size[MAX_INPUTS];
-
-/* global select context */
-int fdns;
-fd_set inputs;
-
-/*struct timeval timeout;*/
-/*timeout.tv_sec = 20;*/
-/*timeout.tv_usec = 0;*/
-
-int
-prepare_input()
-{
-  int high_fd = -1;
-  FD_ZERO(&inputs);
-
-  for(int fd=0; fd<MAX_INPUTS; fd++) {
-
-    if (BS_TEST(enabled_input_fds, fd)) {
-      FD_SET(fd, &inputs);
-      high_fd = (high_fd < fd) ? fd : high_fd;
-    }
-  }
-
-  fdns = high_fd + 1;
-  return 0;
-}
 
 void
 read_data()
@@ -124,6 +89,25 @@ write_data()
   out_buffer_count = 0;
 }
 
+int
+prepare_input()
+{
+  int high_fd = -1;
+  FD_ZERO(&inputs);
+
+  for(int fd=0; fd<MAX_INPUTS; fd++) {
+
+    if (BS_TEST(enabled_input_fds, fd)) {
+      FD_SET(fd, &inputs);
+      high_fd = (high_fd < fd) ? fd : high_fd;
+    }
+  }
+
+  fdns = high_fd + 1;
+  return 0;
+}
+
+
 void
 show_select_error()
 {
@@ -168,6 +152,22 @@ show_select_error()
   }
 }
 
+void
+wait_for_data() {
+  prepare_input();
+  int rs = select(fdns, &inputs, NULL, NULL, NULL);
+
+  if (rs < 0) {
+    show_select_error();
+    exit(errno);
+  } else if (rs == 0) {
+    trace("should never happen");
+    exit(1);
+  }
+}
+
+
+
 int
 main(int argc, char* argv[])
 {
@@ -184,21 +184,10 @@ main(int argc, char* argv[])
   }
 
   while(enabled_input_fds) {
-    prepare_input();
-    int rs = select(fdns, &inputs, NULL, NULL, NULL);
-
-    if (rs < 0) {
-      show_select_error();
-      exit(errno);
-    } else if (rs == 0) {
-      trace("should never happen");
-      exit(2);
-    } else {
-      read_data();
-      transfer_buffers();
-      write_data();
-    }
-
+    wait_for_data();
+    read_data();
+    transfer_buffers();
+    write_data();
   }
 
   return 0;
